@@ -24,7 +24,7 @@ def render_innovation_md(sim: SimulationResult, analysis: InventionAnalysis) -> 
             f"- **类别**: {p.category or '-'}",
             f"- **新颖性理由**: {p.novelty_argument or '-'}",
             f"- **技术效果**: {p.technical_effect or '-'}",
-            f"- **数据证据**:",
+            "- **数据证据**:",
         ]
         lines += [f"  - {e}" for e in p.supporting_evidence] or ["  - (无)"]
         lines += [
@@ -47,7 +47,7 @@ def render_disclosure_md(
     lines: list[str] = [
         f"# {doc.title or '技术交底书(草稿)'}",
         "",
-        f"> 本文档由仿真结果自动生成,属**草稿**;提交专利前须经工程师/专利代理师核实数值与实施例。",
+        "> 本文档由仿真结果自动生成,属**草稿**;提交专利前须经工程师/专利代理师核实数值与实施例。",
         f"> 模型: `{doc.model}` | 数据来源: `{sim.source_file}`",
         "",
     ]
