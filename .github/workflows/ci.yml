@@ -1,4 +1,7 @@
-# sim2patent CI:静态检查(lint)+ 全离线测试 + 端到端 smoke + 打包校验
+# sim2patent CI
+#   lint  :ruff 静态检查(独立 job,失败时任务行名直接显示 lint)
+#   test  :Python 3.10/3.11/3.12 全离线单元测试 + 端到端 mock smoke
+#   build :sdist + wheel 打包校验
 name: CI
 
 on:
@@ -8,6 +11,19 @@ on:
   workflow_dispatch:
 
 jobs:
+  lint:
+    name: lint (ruff)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install
+        run: python -m pip install --upgrade pip && pip install -e ".[dev]"
+      - name: Lint (ruff)
+        run: ruff check .
+
   test:
     name: Python ${{ matrix.python }} · pytest
     runs-on: ubuntu-latest
@@ -24,8 +40,12 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -e ".[dev]"
-      - name: Lint (ruff)
-        run: ruff check .
+      - name: Sanity (files & import)
+        run: |
+          pwd
+          ls -la
+          ls -la examples tests
+          python -c "import sim2patent; print('sim2patent OK', sim2patent.__version__)"
       - name: Unit tests (offline, no LLM)
         run: python -m pytest tests -q
       - name: E2E smoke (mock pipeline, real files)
@@ -48,7 +68,7 @@ jobs:
       - name: Build package
         run: python -m build
       - name: Verify wheel metadata
-        run: python -c "import zipfile,glob;w=glob.glob('dist/*.whl')[0];print(w);assert 'py.typed' in zipfile.ZipFile(w).namelist()"
+        run: python -c "import zipfile,glob;w=glob.glob('dist/*.whl')[0];print(w);assert 'sim2patent/py.typed' in zipfile.ZipFile(w).namelist()"
       - uses: actions/upload-artifact@v4
         with:
           name: dist
