@@ -47,3 +47,43 @@ def test_csv_param_columns_override():
     # 未指定为参数的入口风速被当作指标列
     metric_names = [m.name for m in sim.metrics]
     assert "入口风速" in metric_names
+
+
+def test_bool_flag_is_not_treated_as_metric(tmp_path):
+    """回归:bool 是 int 子类,不得进入数值指标(曾会把 None 注入 metrics)。"""
+    import json
+
+    p = tmp_path / "bool_case.json"
+    p.write_text(
+        json.dumps(
+            {
+                "design_points": [
+                    {"id": 1, "启用导流": True, "最高温度": 50.0},
+                    {"id": 2, "启用导流": False, "最高温度": 47.2},
+                ]
+            }
+        ),
+        encoding="utf-8",
+    )
+    sim = parse_input(p)
+    dp0 = sim.design_points[0]
+    assert dp0.id == "1"
+    assert dp0.params["启用导流"] == "True"
+    assert dp0.metrics == {"最高温度": 50.0}
+    # 任何设计点的指标值都不允许为 None
+    for dp in sim.design_points:
+        assert all(v is not None for v in dp.metrics.values())
+
+
+def test_numeric_id_column_is_not_a_metric(tmp_path):
+    """回归:数字编号列(编号/序号)不得混入指标。"""
+    import json
+
+    p = tmp_path / "numeric_id.csv"
+    p.write_text("编号,入口风速,最高温度\n1,2.0,55.4\n2,2.5,45.2\n", encoding="utf-8")
+    sim = parse_input(p, param_columns=["入口风速"])
+    assert len(sim.design_points) == 2
+    for dp in sim.design_points:
+        assert "编号" not in dp.metrics
+        assert "入口风速" in dp.params
+    assert all("编号" != m.name for m in sim.metrics)

@@ -33,6 +33,13 @@ _PARAM_HINTS = (
     "height", "高度", "thickness", "厚度", "speed", "风速", "入口", "inlet",
     "flow", "流量", "ratio", "比例", "系数",
 )
+# 行标识列(编号/主键,既不是参数也不是指标)
+_ID_COLUMNS = ("id", "设计点", "编号", "序号", "point", "case", "ID", "No", "行号")
+
+
+def _is_id_column(name: str) -> bool:
+    low = name.lower()
+    return any(low == ic.lower() for ic in _ID_COLUMNS)
 # 指标列名特征词
 _METRIC_HINTS = (
     "metric", "result", "指标", "结果", "温度", "temp", "效率", "efficien",
@@ -51,22 +58,22 @@ def _classify_columns(header: list[str], param_columns: Optional[set[str]]) -> t
     """返回 (参数列, 指标列)。显式 param_columns 优先;其余按特征词启发式。"""
     if param_columns:
         p_cols = [c for c in header if c in param_columns]
-        m_cols = [c for c in header if c not in param_columns and c.strip()]
+        m_cols = [c for c in header if c not in param_columns and not _is_id_column(c) and c.strip()]
         if not p_cols:
             raise ValueError(f"param_columns 中没有与表头匹配的列: {param_columns}")
         return p_cols, m_cols
     p_cols, m_cols = [], []
     for c in header:
         name = c.strip()
-        if not name:
+        if not name or _is_id_column(name):
             continue
         if _hint_of(name, _PARAM_HINTS) and not _hint_of(name, _METRIC_HINTS):
             p_cols.append(c)
         else:
             m_cols.append(c)   # 指标特征词或无法判定 -> 按指标(保守)
     if not p_cols and len(header) >= 2:
-        # 完全没有参数特征词时:首列视为设计点编号/参数占位
-        p_cols = [header[0]]
+        # 完全没有参数特征词时:首列(非 id 列)视为设计点编号/参数占位
+        p_cols = [next(c for c in header if not _is_id_column(c.strip()) and c.strip())]
     return p_cols, m_cols
 
 
@@ -156,12 +163,18 @@ def _parse_json_canonical(data: dict[str, Any], source: str) -> SimulationResult
 def _design_point_from_record(rec: dict[str, Any]) -> DesignPoint:
     params: dict[str, str] = {}
     metrics: dict[str, float] = {}
-    id_val = str(rec.get("id") or rec.get("设计点") or rec.get("point") or "")
+    id_val = str(rec.get("id") or rec.get("设计点") or rec.get("编号")
+                 or rec.get("point") or "")
     is_base = bool(rec.get("is_baseline") or rec.get("基线") or False)
+    skip_keys = ("id", "设计点", "编号", "point", "is_baseline", "基线", "note", "备注")
     for k, v in rec.items():
-        if k in ("id", "设计点", "point", "is_baseline", "基线", "note", "备注"):
+        if k in skip_keys:
             continue
         if v is None:
+            continue
+        # bool 是 int 的子类,必须先于数值分支处理,否则会注入 None 指标
+        if isinstance(v, bool):
+            params[k] = str(v)
             continue
         if isinstance(v, (int, float)) or _to_float(str(v)) is not None:
             f = _to_float(str(v))
