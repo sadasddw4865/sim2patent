@@ -1,0 +1,25 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+
+# 运行产物
+output/
+
+# 环境
+.env
+
+# IDE / 系统
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db

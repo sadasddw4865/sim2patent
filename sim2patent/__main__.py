@@ -1,0 +1,7 @@
+"""支持 `python -m sim2patent ...` 的入口。"""
+import sys
+
+from .cli import main
+
+if __name__ == "__main__":
+    sys.exit(main())
